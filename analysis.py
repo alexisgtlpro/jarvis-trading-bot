@@ -107,18 +107,28 @@ def build_message(event: dict, news_warning: str | None = None) -> str:
     trend_txt = {"bull": "haussière 🟢", "bear": "baissière 🔴",
                  "none": "indéterminée ⚪"}.get(trend, "indéterminée ⚪")
 
-    # Confluence tendance / signal : le setup est plus fiable quand le signal
-    # va dans le sens de la tendance de fond.
-    aligned = (is_buy and trend == "bull") or (not is_buy and trend == "bear")
-    conf_txt = confidence_bar(conf)
-    align_txt = ("✅ dans le sens de la tendance" if aligned
-                 else "⚠️ à contre-tendance (prudence)")
+    grade = event.get("grade", "")
+    score = event.get("score", "")
+    sess = event.get("sess", "")
+    grade_badge = {"A+": "🏆 A+", "A": "🥈 A", "B": "🥉 B"}.get(grade, grade)
 
+    conf_txt = confidence_bar(conf)
+
+    header = f"{dir_emoji} *{ticker} {direction}*"
+    if grade:
+        header += f"  ·  {grade_badge}"
     lines = [
-        f"{dir_emoji} *{ticker} {direction}*  ·  `{tf}`",
-        f"_Signal : {title}_",
-        "",
+        header,
+        f"_Signal : {title} · `{tf}`_",
     ]
+    meta = []
+    if score:
+        meta.append(f"Score confluence : *{score}/100*")
+    if sess:
+        meta.append(f"Session : {sess}")
+    if meta:
+        lines.append(" · ".join(meta))
+    lines.append("")
 
     if _has_levels(event):
         lines += [
@@ -132,13 +142,34 @@ def build_message(event: dict, news_warning: str | None = None) -> str:
     else:
         lines += [f"Prix actuel : *{price}*", ""]
 
+    # ---- Confluences (ce qui a validé le setup) ----
+    def _chk(ok: str | None) -> str:
+        return "✅" if str(ok) == "1" else "❌"
+
+    htf_trend = event.get("htf_trend", "")
+    htf_txt = {"bull": "haussier", "bear": "baissier"}.get(htf_trend, "neutre")
+    if any(k in event for k in ("c_htf", "c_sweep", "c_ote", "c_mom")):
+        lines += [
+            "🧩 *Confluences*",
+            f"{_chk('1' if sess and sess != 'Hors killzone' else '0')} "
+            f"Session active ({sess or 'n/a'})",
+            f"{_chk(event.get('c_htf'))} Biais H4 aligné (H4 {htf_txt})",
+            f"{_chk(event.get('c_sweep'))} Balayage de liquidité + MSS",
+            f"{_chk(event.get('c_ote'))} Zone Premium/Discount "
+            f"({event.get('c_pd', 'n/a')})",
+            f"{_chk(event.get('c_mom'))} Momentum (EMA200 + RSI "
+            f"{event.get('rsi', '?')})",
+            "",
+        ]
+
     # ---- Analyse complète ----
     lines += [
         "📊 *Analyse*",
         desc,
         "",
-        f"*Contexte :* tendance de fond {trend_txt}, {align_txt}.",
-        f"*Confiance du setup :* {conf_txt}",
+        f"*Contexte :* tendance de fond {trend_txt}. "
+        f"Setup noté *{grade or '?'}* ({score or '?'}/100).",
+        f"*Confiance du signal :* {conf_txt}",
     ]
 
     if _has_levels(event):
