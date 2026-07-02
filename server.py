@@ -13,6 +13,12 @@ Endpoints :
 from __future__ import annotations
 import os
 import json
+import datetime as dt
+try:
+    from zoneinfo import ZoneInfo
+    PARIS = ZoneInfo("Europe/Paris")
+except Exception:  # sécurité si tzdata absent
+    PARIS = dt.timezone.utc
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -78,15 +84,25 @@ def webhook():
 def agenda():
     if WEBHOOK_SECRET and request.args.get("key") != WEBHOOK_SECRET:
         return jsonify(error="unauthorized"), 401
+    _now = dt.datetime.now(PARIS)
+    _jours = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
+    _mois = ["", "janvier", "février", "mars", "avril", "mai", "juin", "juillet",
+             "août", "septembre", "octobre", "novembre", "décembre"]
+    today_fr = f"{_jours[_now.weekday()]} {_now.day} {_mois[_now.month]}"
     events = cal.today_agenda()
+    header = f"☀️ *Brief éco du matin* — {today_fr}"
     if not events:
-        tg.send("📅 Pas d'annonce éco majeure sur l'or aujourd'hui.")
+        tg.send(header + "\n\nPas d'annonce à fort impact sur l'or aujourd'hui. "
+                "Journée technique : fie-toi à la structure (BOS/CHOCH).")
         return jsonify(count=0)
-    lines = ["📅 *Agenda éco du jour (impact or)* :"]
+    lines = [header, "\nAnnonces à surveiller (heure de Paris) :"]
     for e in events:
-        hhmm = e["when"].strftime("%H:%M UTC")
+        hhmm = e["when"].astimezone(PARIS).strftime("%H:%M")
         fc = f" | prév {e['forecast']}" if e.get("forecast") else ""
-        lines.append(f"• {hhmm} — {e['currency']} {e['title']}{fc}")
+        prev = f" | préc {e['previous']}" if e.get("previous") else ""
+        lines.append(f"• *{hhmm}* — {e['currency']} {e['title']}{fc}{prev}")
+    lines.append("\n_Prudence autour de ces horaires : volatilité et faux "
+                 "signaux fréquents sur l'or._")
     tg.send("\n".join(lines))
     return jsonify(count=len(events))
 
