@@ -1,0 +1,98 @@
+"""
+Serveur webhook Jarvis Trading.
+
+Reçoit les alertes de TradingView (indicateur Jarvis SMC), les analyse,
+vérifie le calendrier économique, et envoie une synthèse sur Telegram.
+
+Lancer :  python server.py
+Endpoints :
+  POST /webhook?key=SECRET   -> reçoit les alertes TradingView
+  GET  /health               -> test de vie
+  GET  /agenda?key=SECRET    -> agenda éco du jour (test manuel)
+"""
+from __future__ import annotations
+import os
+import json
+from dotenv import load_dotenv
+load_dotenv()
+
+from flask import Flask, request, jsonify
+
+import telegram_client as tg
+import analysis
+import economic_calendar as cal
+
+WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "")
+NEWS_WARN_MINUTES = int(os.getenv("NEWS_WARN_MINUTES", "60"))
+PORT = int(os.getenv("PORT", "5000"))
+
+app = Flask(__name__)
+
+
+def _news_warning() -> str | None:
+    """Renvoie un avertissement si une annonce éco arrive bientôt."""
+    events = cal.upcoming(within_minutes=NEWS_WARN_MINUTES)
+    if not events:
+        return None
+    parts = ["⚠️ *Annonce éco imminente* (volatilité sur l'or) :"]
+    for e in events:
+        hhmm = e["when"].strftime("%H:%M UTC")
+        parts.append(f"• {hhmm} — {e['currency']} {e['title']}")
+    parts.append("_Prudence : évite d'entrer juste avant la publication._")
+    return "\n".join(parts)
+
+
+@app.get("/health")
+def health():
+    return jsonify(status="ok")
+
+
+@app.post("/webhook")
+def webhook():
+    if WEBHOOK_SECRET and request.args.get("key") != WEBHOOK_SECRET:
+        return jsonify(error="unauthorized"), 401
+
+    # TradingView envoie parfois du texte brut, parfois du JSON
+    raw = request.get_data(as_text=True) or ""
+    event = None
+    try:
+        event = json.loads(raw)
+    except Exception:
+        # message texte simple : on l'envoie tel quel
+        if raw.strip():
+            tg.send(f"📩 Alerte TradingView :\n{raw.strip()}")
+            return jsonify(status="forwarded")
+        return jsonify(error="empty"), 400
+
+    if event.get("source") != "jarvis_smc":
+        tg.send(f"📩 Alerte :\n```\n{raw}\n```")
+        return jsonify(status="forwarded")
+
+    warn = _news_warning()
+    msg = analysis.build_message(event, news_warning=warn)
+    ok = tg.send(msg)
+    return jsonify(status="sent" if ok else "telegram_error")
+
+
+@app.get("/agenda")
+def agenda():
+    if WEBHOOK_SECRET and request.args.get("key") != WEBHOOK_SECRET:
+        return jsonify(error="unauthorized"), 401
+    events = cal.today_agenda()
+    if not events:
+        tg.send("📅 Pas d'annonce éco majeure sur l'or aujourd'hui.")
+        return jsonify(count=0)
+    lines = ["📅 *Agenda éco du jour (impact or)* :"]
+    for e in events:
+        hhmm = e["when"].strftime("%H:%M UTC")
+        fc = f" | prév {e['forecast']}" if e.get("forecast") else ""
+        lines.append(f"• {hhmm} — {e['currency']} {e['title']}{fc}")
+    tg.send("\n".join(lines))
+    return jsonify(count=len(events))
+
+
+if __name__ == "__main__":
+    print(f"Jarvis Trading Bot en écoute sur le port {PORT}")
+    if not os.getenv("TELEGRAM_BOT_TOKEN"):
+        print("⚠️  TELEGRAM_BOT_TOKEN manquant dans .env")
+    app.run(host="0.0.0.0", port=PORT)
