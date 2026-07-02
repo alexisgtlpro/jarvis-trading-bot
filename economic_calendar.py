@@ -12,7 +12,22 @@ import time
 import datetime as dt
 import requests
 
-FF_URL = "https://nfs.faireconomy.media/ff_calendar_thisweek.json"
+FF_URLS = [
+    "https://nfs.faireconomy.media/ff_calendar_thisweek.json",
+    "https://cdn-nfs.faireconomy.media/ff_calendar_thisweek.json",
+]
+
+_BROWSER_HEADERS = {
+    "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                   "AppleWebKit/537.36 (KHTML, like Gecko) "
+                   "Chrome/126.0.0.0 Safari/537.36"),
+    "Accept": "application/json,text/plain,*/*",
+    "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
+    "Referer": "https://www.forexfactory.com/",
+}
+
+# Diagnostic de la dernière tentative de récupération (visible via /agenda)
+LAST = {"count": 0, "status": None, "error": None, "url": None}
 
 # Devises/événements qui bougent l'or en priorité
 RELEVANT_CURRENCIES = {"USD"}
@@ -28,17 +43,25 @@ def _fetch() -> list[dict]:
     now = time.time()
     if now - _cache["ts"] < _CACHE_TTL and _cache["data"]:
         return _cache["data"]
-    try:
-        r = requests.get(FF_URL, timeout=15,
-                         headers={"User-Agent": "jarvis-trading/1.0"})
-        r.raise_for_status()
-        data = r.json()
-        _cache["ts"] = now
-        _cache["data"] = data
-        return data
-    except Exception as e:  # réseau HS, flux indispo : on ne casse pas le bot
-        print(f"[calendar] fetch échoué: {e}")
-        return _cache["data"]
+    last_err = None
+    for url in FF_URLS:
+        try:
+            r = requests.get(url, timeout=15, headers=_BROWSER_HEADERS)
+            LAST["status"] = r.status_code
+            LAST["url"] = url
+            r.raise_for_status()
+            data = r.json()
+            _cache["ts"] = now
+            _cache["data"] = data
+            LAST["count"] = len(data)
+            LAST["error"] = None
+            return data
+        except Exception as e:  # on tente l'URL suivante avant d'abandonner
+            last_err = f"{type(e).__name__}: {e}"
+            print(f"[calendar] fetch échoué sur {url}: {last_err}")
+    LAST["error"] = last_err
+    LAST["count"] = len(_cache["data"])
+    return _cache["data"]  # on ne casse pas le bot, on renvoie le cache
 
 
 def _parse_dt(item: dt.datetime | str) -> dt.datetime | None:

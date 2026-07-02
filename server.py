@@ -94,7 +94,7 @@ def agenda():
     if not events:
         tg.send(header + "\n\nPas d'annonce à fort impact sur l'or aujourd'hui. "
                 "Journée technique : fie-toi à la structure (BOS/CHOCH).")
-        return jsonify(count=0)
+        return jsonify(count=0, diag=cal.LAST)
     lines = [header, "\nAnnonces à surveiller (heure de Paris) :"]
     for e in events:
         hhmm = e["when"].astimezone(PARIS).strftime("%H:%M")
@@ -104,7 +104,7 @@ def agenda():
     lines.append("\n_Prudence autour de ces horaires : volatilité et faux "
                  "signaux fréquents sur l'or._")
     tg.send("\n".join(lines))
-    return jsonify(count=len(events))
+    return jsonify(count=len(events), diag=cal.LAST)
 
 
 if __name__ == "__main__":
