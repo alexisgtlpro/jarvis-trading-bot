@@ -40,7 +40,7 @@ def _news_warning() -> str | None:
     events = cal.upcoming(within_minutes=NEWS_WARN_MINUTES)
     if not events:
         return None
-    parts = ["⚠️ *Annonce éco imminente* (volatilité sur l'or) :"]
+    parts = ["⚠️ *Annonce éco imminente* (volatilité sur les indices US) :"]
     for e in events:
         hhmm = e["when"].strftime("%H:%M UTC")
         parts.append(f"• {hhmm} — {e['currency']} {e['title']}")
@@ -92,7 +92,7 @@ def agenda():
     events = cal.today_agenda()
     header = f"☀️ *Brief éco du matin* — {today_fr}"
     if not events:
-        tg.send(header + "\n\nPas d'annonce à fort impact sur l'or aujourd'hui. "
+        tg.send(header + "\n\nPas d'annonce US à fort impact aujourd'hui. "
                 "Journée technique : fie-toi à la structure (BOS/CHOCH).")
         return jsonify(count=0, diag=cal.LAST)
     lines = [header, "\nAnnonces à surveiller (heure de Paris) :"]
@@ -102,7 +102,7 @@ def agenda():
         prev = f" | préc {e['previous']}" if e.get("previous") else ""
         lines.append(f"• *{hhmm}* — {e['currency']} {e['title']}{fc}{prev}")
     lines.append("\n_Prudence autour de ces horaires : volatilité et faux "
-                 "signaux fréquents sur l'or._")
+                 "signaux fréquents sur les indices._")
     tg.send("\n".join(lines))
     return jsonify(count=len(events), diag=cal.LAST)
 

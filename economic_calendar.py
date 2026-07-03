@@ -1,9 +1,9 @@
 """
-Calendrier économique - annonces à fort impact sur l'or (XAUUSD).
+Calendrier économique - annonces US à fort impact (indices Futures NQ/ES).
 
-L'or réagit surtout aux données USD (Fed, inflation, emploi). On filtre les
-événements US à fort impact (importance = 1 chez TradingView), plus quelques
-mots-clés majeurs (FOMC, CPI, NFP, Powell...).
+Les indices US réagissent surtout aux données USD (Fed, inflation, emploi).
+On filtre les événements US à fort impact (importance = 1 chez TradingView),
+plus quelques mots-clés majeurs (FOMC, CPI, NFP, Powell...).
 
 Source : API du calendrier économique de TradingView (celle qui alimente leur
 widget). Gratuite, sans clé, robuste depuis un serveur cloud.
