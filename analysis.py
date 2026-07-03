@@ -155,6 +155,8 @@ def build_message(event: dict, news_warning: str | None = None) -> str:
             f"Session active ({sess or 'n/a'})",
             f"{_chk(event.get('c_htf'))} Biais H4 aligné (H4 {htf_txt})",
             f"{_chk(event.get('c_sweep'))} Balayage de liquidité + MSS",
+            f"{_chk(event.get('c_smt'))} Divergence SMT (NQ/ES)",
+            f"{_chk(event.get('c_vol'))} Volume + displacement (CME)",
             f"{_chk(event.get('c_ote'))} Zone Premium/Discount "
             f"({event.get('c_pd', 'n/a')})",
             f"{_chk(event.get('c_mom'))} Momentum (EMA200 + RSI "
