@@ -137,8 +137,11 @@ def build_message(event: dict, news_warning: str | None = None) -> str:
             f"🥇 *Take Profit 1 :* {event['tp1']}   _(1R)_",
             f"🥈 *Take Profit 2 :* {event['tp2']}   _(2R)_",
             f"🥉 *Take Profit 3 :* {event['tp3']}   _(3R)_",
-            "",
         ]
+        if event.get("dol"):
+            lines.append(f"🧲 *Cible liquidité (DOL) :* {event['dol']}  "
+                         f"_(là où le prix est probablement 'tiré')_")
+        lines.append("")
     else:
         lines += [f"Prix actuel : *{price}*", ""]
 
@@ -159,6 +162,8 @@ def build_message(event: dict, news_warning: str | None = None) -> str:
             f"{_chk(event.get('c_vol'))} Volume + displacement (CME)",
             f"{_chk(event.get('c_ote'))} Zone Premium/Discount "
             f"({event.get('c_pd', 'n/a')})",
+            f"{_chk(event.get('c_vwap'))} VWAP institutionnel aligné",
+            f"{_chk(event.get('c_sb'))} Fenêtre Silver Bullet",
             f"{_chk(event.get('c_mom'))} Momentum (EMA200 + RSI "
             f"{event.get('rsi', '?')})",
             "",
