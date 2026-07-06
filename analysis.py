@@ -131,6 +131,8 @@ def build_message(event: dict, news_warning: str | None = None) -> str:
     lines.append("")
 
     if _has_levels(event):
+        if event.get("price"):
+            lines.append(f"Prix au signal : *{event['price']}*")
         lines += [
             f"🎯 *Entry Zone :* {event['entry_low']} – {event['entry_high']}",
             f"🛑 *Stop Loss :* {event['sl']}",
@@ -180,15 +182,14 @@ def build_message(event: dict, news_warning: str | None = None) -> str:
     ]
 
     if _has_levels(event):
-        entry_word = ("un repli acheteur dans la zone d'entrée"
-                      if is_buy else "un rebond vendeur dans la zone d'entrée")
         invalid_word = ("sous le Stop Loss (structure cassée)"
                         if is_buy else "au-dessus du Stop Loss (structure cassée)")
         lines += [
             "",
             "*Plan d'exécution :*",
-            f"• Entrée : attends {entry_word}, n'entre pas en pleine "
-            "impulsion (tu paierais un mauvais prix).",
+            "• Entrée : la zone est proche du prix actuel. Entre au marché ou "
+            "sur un léger repli dans la zone. Si le prix s'est déjà trop "
+            "éloigné de la zone, laisse passer.",
             f"• Invalidation : le scénario est faux si le prix clôture "
             f"{invalid_word}. Respecte le Stop Loss, toujours.",
             "• Sortie : sécurise une partie à TP1, puis remonte le Stop Loss "
